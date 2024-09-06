@@ -5,12 +5,17 @@
       "use": "@vercel/python"
     }
   ],
+  "functions": {
+    "main.py": {
+      "maxDuration": 60 
+    }
+  },
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "main.py",
-      "timeout": 60000
+      "dest": "main.py"
     }
   ],
   "regions": ["bom1"]
 }
+
