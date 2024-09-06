@@ -1,7 +1,13 @@
 from flask import Flask, request, jsonify
 from g4f.client import Client
+from fp.fp import FreeProxy
 
 app = Flask(__name__)
+
+def get_random_proxy():
+    
+    proxy = FreeProxy().get()
+    return {"http": proxy, "https": proxy}
 
 @app.route('/')
 def hello_world():
@@ -19,9 +25,13 @@ def advance():
             return jsonify({"error": "Invalid input, 'messages' field is required"}), 400
 
         client = Client()
+        proxy = get_random_proxy()
+
+        
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=data["messages"],
+            proxies=proxy  
         )
 
         if response.choices:
@@ -42,9 +52,13 @@ def get_ai_response(model_name):
             return jsonify({"error": "No prompt provided"}), 400
 
         client = Client()
+        proxy = get_random_proxy()
+
+        
         response = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
+            proxies=proxy 
         )
 
         if response.choices:
