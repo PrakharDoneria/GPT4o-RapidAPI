@@ -8,7 +8,8 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "main.py"
+      "dest": "main.py",
+      "timeout": 60000
     }
   ],
   "regions": ["bom1"]

@@ -2,4 +2,4 @@ Flask
 gpt4free
 curl-cffi
 g4f
-free-proxy
+apxr

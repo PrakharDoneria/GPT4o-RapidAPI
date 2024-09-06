@@ -1,13 +1,33 @@
 from flask import Flask, request, jsonify
 from g4f.client import Client
-from fp.fp import FreeProxy
+from apxr import AsyncProxier
+import asyncio
+from curl_cffi.requests import AsyncSession
 
 app = Flask(__name__)
 
-def get_random_proxy():
-    
-    proxy = FreeProxy().get()
-    return {"http": proxy, "https": proxy}
+# Initialize AsyncProxier with desired settings (e.g., US proxies, HTTPS, anonymous)
+proxier = AsyncProxier(country_id=['US'], https=True, anonym=True)
+
+async def get_random_proxy():
+    # Fetch and return an updated working proxy
+    return await proxier.update()
+
+async def fetch_with_proxy(url):
+    # Perform an HTTP request using a proxy
+    proxy = await get_random_proxy()
+    async with AsyncSession(proxy=proxy) as session:
+        try:
+            response = await session.get(url)
+            if response.status_code == 200:
+                return response.text
+            else:
+                raise Exception('Proxy Error')
+        except Exception as e:
+            print(f"Proxy request failed: {str(e)}")
+            # Update proxy on failure and retry
+            await proxier.update(True)
+            return None
 
 @app.route('/')
 def hello_world():
@@ -15,23 +35,33 @@ def hello_world():
 
 @app.route('/gpt4o', methods=['GET'])
 def gpt4o():
-    return get_ai_response("gpt-4o")
+    # Run the async function in a synchronous Flask route
+    result = asyncio.run(get_ai_response("gpt-4o"))
+    return result
 
 @app.route('/advance', methods=['POST'])
 def advance():
+    data = request.get_json()
+    if not data or "messages" not in data:
+        return jsonify({"error": "Invalid input, 'messages' field is required"}), 400
+
     try:
-        data = request.get_json()
-        if not data or "messages" not in data:
-            return jsonify({"error": "Invalid input, 'messages' field is required"}), 400
+        result = asyncio.run(handle_advance(data["messages"]))
+        return result
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
+async def handle_advance(messages):
+    try:
         client = Client()
-        proxy = get_random_proxy()
-
+        # Get the proxy and make a request to your AI service
+        proxy = await get_random_proxy()
         
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=data["messages"],
-            proxies=proxy  
+            messages=messages,
+            # Assuming client supports proxy use in some way
+            proxies={"http": proxy, "https": proxy}
         )
 
         if response.choices:
@@ -45,20 +75,19 @@ def advance():
     except Exception as e:
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
-def get_ai_response(model_name):
+async def get_ai_response(model_name):
     try:
         prompt = request.args.get('prompt')
         if not prompt:
             return jsonify({"error": "No prompt provided"}), 400
 
         client = Client()
-        proxy = get_random_proxy()
+        proxy = await get_random_proxy()
 
-        
         response = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
-            proxies=proxy 
+            proxies={"http": proxy, "https": proxy}
         )
 
         if response.choices:
@@ -74,3 +103,4 @@ def get_ai_response(model_name):
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5000)
+    
